@@ -20,10 +20,6 @@ class Policy(nn.Module):
         method = CONF.get('method_name', 'MAPPO')
         if method == 'MAPPO':
             self.actor_base = ActorBase(CONF['obs_shape'][0], self.hidden_size, uid)
-        elif method == 'MAPPO_CNN':
-            self.actor_base = ActorCNN(CONF['obs_shape'][0], self.hidden_size, uid)
-        elif method == 'MAPPO_CNN_GRU':
-            self.actor_base = ActorCNN_GRU(CONF['obs_shape'][0], self.hidden_size, uid)
         elif method == 'MAPPO_COMM':
             self.actor_base = ActorCOMM(CONF['obs_shape'][0], self.hidden_size, uid)
         else:
@@ -56,14 +52,12 @@ class Policy(nn.Module):
                 nn.ReLU(),
             )
             self.dist_dia = DiagGaussian(ac_hid, 2) ##128--2
-        elif method in ('MAPPO', 'MAPPO_CNN', 'MAPPO_CNN_GRU'):
+        elif method == 'MAPPO':
             use_pred = CONF.get('actor_use_pred', False)
             pred_out_d = CONF.get('pred_out_d', 64) if use_pred else 0
             self._actor_use_pred = use_pred
-            # ActorBase / ActorCNN 末层均输出 hidden_size；再 (± pred_feat) → hidden_size_ac → action(2)
+            # ActorBase 末层均输出 hidden_size；再 (± pred_feat) → hidden_size_ac → action(2)
             in_dim = self.hidden_size + (pred_out_d if use_pred else 0)
-            if method == 'MAPPO_CNN_GRU':
-                in_dim = int(torch.tensor(CONF['M_size']).prod().item()) + (pred_out_d if use_pred else 0)
             self.action_head = nn.Sequential(
                 init_ah(nn.Linear(in_dim, ac_hid)),
                 nn.ReLU(),
@@ -78,7 +72,7 @@ class Policy(nn.Module):
             self.dist_dia = DiagGaussian(self.hidden_size, 2)
 
         self._critic_use_pred = bool(CONF.get('critic_use_pred', False)) and method in (
-            'MAPPO', 'MAPPO_CNN', 'MAPPO_CNN_GRU', 'MAPPO_COMM')
+            'MAPPO', 'MAPPO_COMM')
         _critic_pf_d = CONF.get('pred_out_d', 64) if self._critic_use_pred else 0
 
         if method == 'MAPPO':
@@ -88,9 +82,6 @@ class Policy(nn.Module):
             comm_dim = CONF['hgcn_out_dim'] * uav_num
             self.critic = CentralizedCritic(
                 uav_num, self.hidden_size, comm_dim=comm_dim, pred_feat_dim=_critic_pf_d)
-        elif method in ('MAPPO_CNN', 'MAPPO_CNN_GRU'):
-            self.critic = CentralizedCritic(
-                uav_num, self.hidden_size, comm_dim=0, pred_feat_dim=_critic_pf_d)
         elif method == 'MAPPO_COMM':
             # 未开 critic_use_comm 时仍可用 critic + 预测特征（无 h_comm 支路）
             self.critic = CentralizedCritic(
@@ -98,7 +89,7 @@ class Policy(nn.Module):
         else:
             self.critic = CentralizedCritic(uav_num, self.hidden_size, comm_dim=0, pred_feat_dim=0)
 
-    # ---------- 通用接口 (MAPPO / CNN / CNN_GRU) ----------
+    # ---------- 通用接口 (MAPPO) ----------
     def get_action_s(self, obs_s, h, p_msk, n_msk, obs_all=None, pred_feat=None):
         actor_feature_s, rhs_h_s = self.actor_base(obs_s, h, p_msk, n_msk)
         if self.action_head is not None:
@@ -432,95 +423,6 @@ class ActorBase(nn.Module):
                                device=obs_s.device, dtype=obs_s.dtype)
         return actor_feature_s, rhs_hc_s
 
-
-class ActorCNN(nn.Module):
-    """CNN backbone：观测经 CNN + 线性层。"""
-
-    def __init__(self, input_channel_num, hidden_size, uid):
-        super(ActorCNN, self).__init__()
-        init_ = lambda m: init(m,
-                               nn.init.orthogonal_,
-                               lambda x: nn.init.constant_(x, 0),
-                               nn.init.calculate_gain('relu'))
-        self.uid = uid
-        self.hidden_size = hidden_size
-        self.main = nn.Sequential(
-            init_(nn.Conv2d(input_channel_num, 32, 8, stride=4, padding=4)),
-            nn.ReLU(),
-            init_(nn.Conv2d(32, 32, 5, stride=1, padding=1)),
-            nn.ReLU(),
-            init_(nn.Conv2d(32, 32, 4, stride=1, padding=1)),
-            nn.ReLU(),
-        )
-        init_fc = lambda m: init(m,
-                                 nn.init.orthogonal_,
-                                 lambda x: nn.init.constant_(x, 0))
-        self.fc = init_fc(nn.Linear(32 * 3 * 3, hidden_size))
-        self.train()
-
-    def forward(self, obs_s, rhs_h_s, p_msk, n_msk):
-        x = self.main(obs_s)
-        x = x.flatten(1)
-        actor_feature_s = torch.relu(self.fc(x))
-        batch_size = obs_s.size(0)
-        rhs_hc_s = torch.zeros(batch_size, *CONF['M_size'],
-                               device=obs_s.device, dtype=obs_s.dtype)
-        return actor_feature_s, rhs_hc_s
-
-
-class ActorCNN_GRU(nn.Module):
-    """CNN+GRU backbone。"""
-
-    def __init__(self, input_channel_num, hidden_size, uid):
-        super(ActorCNN_GRU, self).__init__()
-        init_ = lambda m: init(m,
-                               nn.init.orthogonal_,
-                               lambda x: nn.init.constant_(x, 0),
-                               nn.init.calculate_gain('relu'))
-        self.uid = uid
-        self.hidden_size = hidden_size
-        self.main = nn.Sequential(
-            init_(nn.Conv2d(input_channel_num, 32, 8, stride=4, padding=4)),
-            nn.ReLU(),
-            init_(nn.Conv2d(32, 32, 5, stride=1, padding=1)),
-            nn.ReLU(),
-            init_(nn.Conv2d(32, 32, 4, stride=1, padding=1)),
-            nn.ReLU(),
-        )
-        self.gru_input_size = int(CONF['hidden_size_gru'])
-        self.gru_hidden_size = int(torch.tensor(CONF['M_size']).prod().item())
-        self.gru = nn.GRUCell(self.gru_input_size, self.gru_hidden_size)
-        init_fc = lambda m: init(m,
-                                 nn.init.orthogonal_,
-                                 lambda x: nn.init.constant_(x, 0))
-        self.embed_fc = init_fc(nn.Linear(32 * 3 * 3, self.gru_input_size))
-        init_ = lambda m: init(m,
-                               nn.init.orthogonal_,
-                               lambda x: nn.init.constant_(x, 0))
-        self.actor_fc = init_(nn.Linear(self.gru_hidden_size, hidden_size))
-        self.train()
-
-    def forward(self, obs_s, rhs_h_s, p_msk, n_msk):
-        x = self.main(obs_s)
-        x_flat = x.flatten(1)
-        x_embed = self.embed_fc(x_flat)
-        if x_embed.size(0) == rhs_h_s.size(0):
-            h_flat = rhs_h_s.view(rhs_h_s.size(0), -1)
-            h_new = self.gru(x_embed, h_flat)
-            z = h_new
-            rhs_hc_s = h_new.view(rhs_h_s.size(0), *CONF['M_size'])
-        else:
-            N = rhs_h_s.size(0)
-            T = x_embed.size(0) // N
-            x_embed_seq = x_embed.view(T, N, -1)
-            h = rhs_h_s.view(N, -1)
-            outputs = []
-            for t in range(T):
-                h = self.gru(x_embed_seq[t], h)
-                outputs.append(h)
-            z = torch.stack(outputs, dim=0).view(T * N, -1)
-            rhs_hc_s = h.view(N, *CONF['M_size'])
-        return z, rhs_hc_s
 
 class ActorCOMM(nn.Module):
     """CNN+GRU backbone for MAPPO_COMM.
