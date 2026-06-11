@@ -8,14 +8,14 @@ os.environ['MKL_NUM_THREADS'] = '1'
 
 if __name__ == '__main__':
     # parser = argparse.ArgumentParser()
-    # parser.add_argument('env_name', type=str, help='the name of environment (KAIST or NCSU or purdue or purdue197_3)')
-    # parser.add_argument('method_name', type=str, help='the name of method (fd_mappo_cubicmap)')
+    # parser.add_argument('env_name', type=str, help='the name of environment (KAIST or NCSU or purdue)')
+    # parser.add_argument('method_name', type=str, help='the name of method (MAPPO_COMM)')
     # parser.add_argument('mode', type=str, help='train or test')
     # args = parser.parse_args()
 
     args = type('Args', (object,), {
         'env_name': 'KAIST',
-        'method_name': 'MAPPO_COMM', #'fd_mappo_cubicmap', 'IPPO', 'IPPO_CNN', 'IPPO_CNN_GRU', 'MAPPO', 'MAPPO_CNN', 'MAPPO_CNN_GRU', 'MAPPO_COMM'
+        'method_name': 'MAPPO_COMM', #'IPPO', 'MAPPO', 'MAPPO_COMM'
         'mode': 'train' #'train', 'test'
     })()
 
