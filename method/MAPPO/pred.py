@@ -10,7 +10,7 @@
 import math
 
 from .conf import *
-from .C2I import UniMobI2CLoss, UniMobC2ILoss
+from .C2I import I2RLoss, R2ILoss
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -459,8 +459,8 @@ def pred_module_loss(peo_logits, flow_pred, peo_id_next, reg_stats_next, cur_cou
     if (peo_feat is not None and reg_feat is not None
             and peo_id_current is not None):
         peo_id_cur = peo_id_current.long()
-        loss_i2c = UniMobI2CLoss()(peo_feat, reg_feat, peo_id_cur)
-        loss_c2i = UniMobC2ILoss(
+        loss_i2c = I2RLoss()(peo_feat, reg_feat, peo_id_cur)
+        loss_c2i = R2ILoss(
             temperature=float(CONF.get('pred_c2i_temperature', 0.1)))(
             peo_feat, reg_feat, peo_id_cur)
         w_i2c = float(CONF.get('pred_loss_w_i2c', 1.0))
@@ -638,4 +638,3 @@ def compute_pred_feat_timeseries(pred_module, peo_region_id, region_stats,
     #     f"total_s={pred_forward_elapsed:.6f}"
     # )
     return pred_feat.detach().cpu().numpy().astype(np.float32)
-

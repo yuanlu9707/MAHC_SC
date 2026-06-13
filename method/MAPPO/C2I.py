@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class UniMobI2CLoss(nn.Module):
+class I2RLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
@@ -55,7 +55,7 @@ class UniMobI2CLoss(nn.Module):
         return loss
 
 
-class UniMobC2ILoss(nn.Module):
+class R2ILoss(nn.Module):
     def __init__(self, temperature=0.1):
         super().__init__()
         self.temperature = temperature
@@ -144,8 +144,8 @@ class UniMobC2ILoss(nn.Module):
 # ================= 验证代码 =================
 if __name__ == "__main__":
     B, N, K, D = 2, 5, 3, 4
-    model = UniMobC2ILoss(temperature=0.1)
-    model1 = UniMobI2CLoss()
+    model = R2ILoss(temperature=0.1)
+    model1 = I2RLoss()
 
     # 模拟数据
     U = torch.randn(B, N, D, requires_grad=True)
