@@ -10,7 +10,7 @@
 import math
 
 from .conf import *
-from .C2I import I2RLoss, R2ILoss
+from .R2I import I2RLoss, R2ILoss
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -198,7 +198,7 @@ class PredModule(nn.Module):
     pred_feat   : (B, d_pred)         供 Actor 动作头使用的预测特征
     peo_logits  : (B, P, K)           行人区域预测 logits（用于交叉熵损失）
     flow_pred   : (B, K, 2)           区域入流/出流预测，直接预测归一化的（与 reg_in 输入尺度一致）
-    peo_feat    : (B, P, d)           I2C/C2I 用：见 CONF['i2c_c2i_use_normalize']（True：投影+L2；False：GCRU 原特征）
+    peo_feat    : (B, P, d)           I2R/R2I 用：见 CONF['i2r_r2i_use_normalize']（True：投影+L2；False：GCRU 原特征）
     reg_feat    : (B, K, d)           同上
 
     T_max       : 时间嵌入 nn.Embedding 行数，须大于窗口内任意 time_id；训练侧传入
@@ -223,9 +223,9 @@ class PredModule(nn.Module):
         self.peo_gcru = GCRU(d, d, n_heads)
         self.reg_gcru = GCRU(d, d, n_heads)
 
-        # ── I2C/C2I：可选投影 + L2（i2c_c2i_use_normalize=False 时不创建、不用）──
-        self._i2c_c2i_use_normalize = bool(CONF.get('i2c_c2i_use_normalize', True))
-        if self._i2c_c2i_use_normalize:
+        # ── I2R/R2I：可选投影 + L2（i2r_r2i_use_normalize=False 时不创建、不用）──
+        self._i2r_r2i_use_normalize = bool(CONF.get('i2r_r2i_use_normalize', True))
+        if self._i2r_r2i_use_normalize:
             self.peo_align_proj = nn.Sequential(
                 nn.Linear(d, d), nn.ReLU(), nn.Linear(d, d))
             self.reg_align_proj = nn.Sequential(
@@ -294,8 +294,8 @@ class PredModule(nn.Module):
         peo_n = self.norm_peo(peo_feat)
         reg_n = self.norm_reg(reg_feat)
 
-        # ── I2C/C2I 输入特征（主干仍始终用未投影的 GCRU 特征做交叉注意力）──────
-        if self._i2c_c2i_use_normalize:
+        # ── I2R/R2I 输入特征（主干仍始终用未投影的 GCRU 特征做交叉注意力）──────
+        if self._i2r_r2i_use_normalize:
             peo_align = F.normalize(self.peo_align_proj(peo_feat), dim=-1, eps=1e-8)
             reg_align = F.normalize(self.reg_align_proj(reg_feat), dim=-1, eps=1e-8)
         else:
@@ -379,7 +379,7 @@ def pred_module_loss(peo_logits, flow_pred, peo_id_next, reg_stats_next, cur_cou
     peo_id_next   : (B, P)      LongTensor，下时隙真实行人区域 ID
     reg_stats_next: (B, K, 3)   FloatTensor，下时隙真实区域统计 [count, inflow, outflow]
     cur_count     : (B, K)      当前时隙区域人数（与 forward 一致），用于质量守恒人数预测
-    peo_feat      : (B, P, d)   I2C/C2I 输入（与 forward 第 4 返回值一致；是否投影+L2 由 i2c_c2i_use_normalize）
+    peo_feat      : (B, P, d)   I2R/R2I 输入（与 forward 第 4 返回值一致；是否投影+L2 由 i2r_r2i_use_normalize）
     reg_feat      : (B, K, d)   同上
     peo_id_current: (B, P)      LongTensor，当前时隙真实行人区域 ID（窗口最后一帧）；
                                 use_peo_logits_mask 时用于空间软掩码（切比雪夫距 > max_dist 惩罚）。
@@ -459,17 +459,17 @@ def pred_module_loss(peo_logits, flow_pred, peo_id_next, reg_stats_next, cur_cou
     if (peo_feat is not None and reg_feat is not None
             and peo_id_current is not None):
         peo_id_cur = peo_id_current.long()
-        loss_i2c = I2RLoss()(peo_feat, reg_feat, peo_id_cur)
-        loss_c2i = R2ILoss(
-            temperature=float(CONF.get('pred_c2i_temperature', 0.1)))(
+        loss_i2r = I2RLoss()(peo_feat, reg_feat, peo_id_cur)
+        loss_r2i = R2ILoss(
+            temperature=float(CONF.get('pred_r2i_temperature', 0.1)))(
             peo_feat, reg_feat, peo_id_cur)
-        w_i2c = float(CONF.get('pred_loss_w_i2c', 1.0))
-        w_c2i = float(CONF.get('pred_loss_w_c2i', 1.0))
-        loss_total = loss_total + w_i2c * loss_i2c + w_c2i * loss_c2i
-        loss_dict['i2c'] = loss_i2c.item()
-        loss_dict['c2i'] = loss_c2i.item()
-        loss_dict['i2c_w'] = (w_i2c * loss_i2c).item()
-        loss_dict['c2i_w'] = (w_c2i * loss_c2i).item()
+        w_i2r = float(CONF.get('pred_loss_w_i2r', 1.0))
+        w_r2i = float(CONF.get('pred_loss_w_r2i', 1.0))
+        loss_total = loss_total + w_i2r * loss_i2r + w_r2i * loss_r2i
+        loss_dict['i2r'] = loss_i2r.item()
+        loss_dict['r2i'] = loss_r2i.item()
+        loss_dict['i2r_w'] = (w_i2r * loss_i2r).item()
+        loss_dict['r2i_w'] = (w_r2i * loss_r2i).item()
 
     return loss_total, loss_dict
 
@@ -612,7 +612,7 @@ def pretrain_pred_module(pred_module, peo_region_id, region_stats,
             print(f'[pred pretrain] epoch {ep + 1}/{epochs} lr={cur_lr:.2e} loss={loss.item():.4f} '
                   f'ce={last_dict.get("ce", 0):.4f} flow={last_dict.get("flow", 0):.5f} '
                   f'agg_count={last_dict.get("agg_count", 0):.5f} '
-                  f'i2c={last_dict.get("i2c", 0):.4f} c2i={last_dict.get("c2i", 0):.4f}')
+                  f'i2r={last_dict.get("i2r", 0):.4f} r2i={last_dict.get("r2i", 0):.4f}')
 
     pred_module.eval()
     return last_dict

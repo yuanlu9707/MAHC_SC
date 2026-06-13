@@ -62,7 +62,7 @@ class R2ILoss(nn.Module):
 
     def forward(self, u_features, r_features, user_loc_indices):
         """
-        计算 C2I (Collective-to-Individual) 对齐损失
+        计算 R2I (Collective-to-Individual) 对齐损失
         逻辑: 以区域(Region)为锚点(Anchor)，拉近该区域内的用户(Positive Samples)，
              推远所有其他用户(Negative Samples implied in All Samples).
 
@@ -159,8 +159,8 @@ if __name__ == "__main__":
     loss = model(U, R, loc)
     loss1 = model1(U, R, loc)
 
-    print("Final C2I Loss:", loss.item())
-    print("Final I2C Loss:", loss1.item())
+    print("Final R2I Loss:", loss.item())
+    print("Final I2R Loss:", loss1.item())
 
     loss.backward()
     print("Backward pass successful.")
