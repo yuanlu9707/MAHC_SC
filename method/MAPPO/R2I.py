@@ -8,7 +8,7 @@ class I2RLoss(nn.Module):
 
     def forward(self, U, R, loc):
         """
-        I2C (Individual-to-Collective) 对齐损失
+        I2R (Individual-to-Collective) 对齐损失
         目标: 属于同一区域的用户特征聚合后，应与该区域的特征相似。
         """
         B, N, D = U.shape
