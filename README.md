@@ -1,83 +1,154 @@
-# MAHC_SC
-MAHC_SC for "MAHC-SC: Micro-Macro Mobility Alignment and Dynamic Group-based Hypergraph Collaboration for Human-UAV Spatial Crowdsourcing"
-## :page_facing_up: Description
-MAHC_SC包含M3A和DGHC
-## :wrench: Dependencies
-- Python == 3.7 (Recommend to use [Anaconda](https://www.anaconda.com/download/#linux) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html))
-- [PyTorch == 1.8.1](https://pytorch.org/)
-- NVIDIA GPU (RTX 8000) + [CUDA 11.7](https://developer.nvidia.com/cuda-downloads)
-### Installation
-1. Clone repo
-    ```bash
-    git clone https://github.com/yuanlu9707/MAHC_SC.git
-    cd MAHC_SC
-    ```
-2. Install dependent packages
-    ```
-    pip install -r requirements.txt
-    ```
-## :zap: Quick Inference
+# MAHC-SC
 
-Get the usage information of the project
+Official implementation of **MAHC-SC: Micro-Macro Mobility Alignment and Dynamic Group-based Hypergraph Collaboration for Human-UAV Spatial Crowdsourcing**.
+
+## Description
+
+MAHC-SC contains two main components:
+
+- **M3A (Micro-Macro Mobility Alignment):** models mobility at the individual and regional levels and aligns the two representations through bidirectional individual-to-region and region-to-individual objectives.
+- **DGHC (Dynamic Group-based Hypergraph Collaboration):** periodically constructs UAV collaboration groups and performs group-level information exchange through hypergraph communication.
+
+The repository provides environments for the **KAIST** and **Purdue** datasets and implements MAHC-SC on top of MAPPO.
+
+## Requirements
+
+- Python 3.7
+- PyTorch 1.8.1
+- NumPy 1.19.2
+- Numba 0.53.1
+- Matplotlib 3.4.1
+- An NVIDIA GPU and a CUDA installation compatible with the selected PyTorch build
+
+Using [Anaconda](https://www.anaconda.com/download) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) is recommended.
+
+## Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/yuanlu9707/MAHC_SC.git
+   cd MAHC_SC
+   ```
+
+2. Install the dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## Project Structure
+
+```text
+MAHC_SC/
+|-- environment/
+|   |-- KAIST/              # KAIST environment and configuration
+|   `-- purdue/             # Purdue environment and configuration
+|-- method/
+|   `-- MAPPO/
+|       |-- conf.py         # Method and MAHC-SC hyperparameters
+|       |-- pred.py         # M3A mobility prediction and representation module
+|       |-- R2I.py          # Individual-region alignment objectives
+|       |-- model.py        # Policy, hypergraph, and DGHC modules
+|       |-- train.py        # Training procedure
+|       `-- test.py         # Evaluation procedure
+|-- main.py                 # Entry point
+`-- util.py
+```
+
+## Configuration
+
+The current entry point reads the experiment settings directly from the `args` object in [`main.py`](https://github.com/yuanlu9707/MAHC_SC/blob/main/main.py):
+
+```python
+args = type('Args', (object,), {
+    'env_name': 'KAIST',
+    'method_name': 'MAPPO_COMM',
+    'mode': 'train',
+})()
+```
+
+Available settings are:
+
+- `env_name`: `KAIST` or `purdue`
+- `method_name`: `MAPPO_COMM` for the complete MAHC-SC model, or `MAPPO` for MAPPO with M3A but without DGHC communication
+- `mode`: `train` or `test`
+
+Environment parameters, including the number of UAVs and dataset paths, can be changed in:
+
+- [`environment/KAIST/conf.py`](https://github.com/yuanlu9707/MAHC_SC/blob/main/environment/KAIST/conf.py)
+- [`environment/purdue/conf.py`](https://github.com/yuanlu9707/MAHC_SC/blob/main/environment/purdue/conf.py)
+
+Method, M3A, and DGHC hyperparameters can be changed in:
+
+- [`method/MAPPO/conf.py`](https://github.com/yuanlu9707/MAHC_SC/blob/main/method/MAPPO/conf.py)
+
+For example, the number of UAVs is controlled by:
+
+```python
+'uav_num': 6,
+```
+
+## Training
+
+Set `mode` to `train` in `main.py`, select the environment, and use `MAPPO_COMM` to train the complete MAHC-SC model.
+
+### KAIST
+
+```python
+'env_name': 'KAIST',
+'method_name': 'MAPPO_COMM',
+'mode': 'train',
+```
+
+### Purdue
+
+```python
+'env_name': 'purdue',
+'method_name': 'MAPPO_COMM',
+'mode': 'train',
+```
+
+Start training from the repository root:
+
 ```bash
-cd code
-python main.py -h
-```
-Then the usage information will be shown as following
-```
-usage: main.py [-h] env_name method_name mode
-
-positional arguments:
-  env_name     the name of environment (KAIST or purdue)
-  method_name  the name of method (MAPPO_COMM)
-  mode         train or test
-
-optional arguments:
-  -h, --help   show this help message and exit
-```
-python main.py KAIST MAPPO test
-python main.py purdue MAPPO test
+python main.py
 ```
 
-## :computer: Training
+The output directory is controlled by `root_path` in `method/MAPPO/conf.py`.
 
-We provide complete training codes for MAHC_SC.<br>
-You could adapt it to your own needs.
+## Testing
 
-1. You can modify the config files 
-[human_drone_SC/code/environment/KAIST/conf.py](https://github.com/BIT-MCS/human_drone_SC/tree/main/code/environment/KAIST/conf.py) and
-[human_drone_SC/code/environment/purdue/conf.py](https://github.com/BIT-MCS/human_drone_SC/tree/main/code/environment/NCSU/conf.py) for environments.<br>
-For example, you can control the number of drones in the environment by modifying this line
-	```
-	[43]  'uav_num': 6,
-	```
-2. You can modify the config file 
-[human_drone_SC/code/method/MAPPO/conf.py](https://github.com/BIT-MCS/human_drone_SC/tree/main/code/method/fd_mappo_cubicmap/conf.py) for method.<br>
+Set `mode` to `test` in `main.py` and keep `env_name` and `method_name` consistent with the trained checkpoint:
 
-3. Training
-	```
-	python main.py KAIST MAPPO train
-	python main.py NCSU MAPPO train
-	```
-	The log files will be stored in [human_drone_SC/log](https://github.com/BIT-MCS/human_drone_SC/tree/main/log).
+```python
+args = type('Args', (object,), {
+    'env_name': 'KAIST',
+    'method_name': 'MAPPO_COMM',
+    'mode': 'test',
+})()
+```
 
-## :checkered_flag: Testing
-	```
-	python main.py KAIST MAPPO test
-	python main.py NCSU MAPPO test
-	```
-## :scroll: Acknowledgement
+Then run:
 
-This work is supported by Chinese national key research plan 2021YFF0901205. 
-<br>
+```bash
+python main.py
+```
+
+## Acknowledgement
+
+This work is supported by the National Key Research and Development Program of China (2021YFF0901205).
+
 Corresponding author: Lei Yang.
 
-## :e-mail: Contact
+## Contact
 
-If you have any question, please email `yuanlu9707@163.com`.
+For questions, please contact `yuanlu9707@163.com`.
 
-## Paper
-If you are interested in our work, please cite our paper as
-```
+## Citation
+
+If you find this repository useful, please cite:
+
+```text
 MAHC-SC: Micro-Macro Mobility Alignment and Dynamic Group-based Hypergraph Collaboration for Human-UAV Spatial Crowdsourcing
 ```
