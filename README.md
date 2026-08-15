@@ -38,6 +38,7 @@ optional arguments:
 python main.py KAIST MAPPO test
 python main.py purdue MAPPO test
 ```
+
 ## :computer: Training
 
 We provide complete training codes for MAHC_SC.<br>
@@ -69,6 +70,7 @@ For example, you can control the hyperparameters studied in paper by modifying t
 	python main.py NCSU fd_mappo_cubicmap train
 	```
 	The log files will be stored in [human_drone_SC/log](https://github.com/BIT-MCS/human_drone_SC/tree/main/log).
+
 ## :checkered_flag: Testing
 1. Before testing, you should modify the file [human_drone_SC/code/env_method_set.py](https://github.com/BIT-MCS/human_drone_SC/tree/main/code/env_method_set.py) to ensure the datetime of the version you want to test is right.
 	```
