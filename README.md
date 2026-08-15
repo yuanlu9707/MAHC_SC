@@ -26,12 +26,12 @@ python main.py -h
 Then the usage information will be shown as following
 ```
 usage: main.py [-h] env_name method_name mode
-
+```
 positional arguments:
   env_name     the name of environment (KAIST or purdue)
   method_name  the name of method (MAPPO_COMM)
   mode         train or test
- 
+ ```
 optional arguments:
   -h, --help   show this help message and exit
 ```
