@@ -18,8 +18,7 @@ The repository provides environments for the **KAIST** and **Purdue** datasets a
 - NumPy 1.19.5
 - Numba 0.53.1
 - Matplotlib 3.3.4
-- scipy==1.6.2
-- scikit-learn==0.24.1
+- scipy 1.6.2
 - An NVIDIA GPU and a CUDA installation compatible with the selected PyTorch build
 
 Using [Anaconda](https://www.anaconda.com/download) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) is recommended.
